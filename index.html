@@ -61,7 +61,7 @@
 <body>
   <div id="rotate-overlay">
     <div id="rotate-icon">&#x1F4F1;</div>
-    <p>ROTATE YOUR PHONE<br>FOR THE BEST EXPERIENCE</p>
+    <p>PLEASE ROTATE YOUR PHONE</p>
   </div>
   <div id="game-container"></div>
 
@@ -107,21 +107,30 @@
     class EmailGateScene extends Phaser.Scene {
       constructor() { super({ key: 'EmailGate' }); }
 
+      preload() {
+        this.load.image('jezero-logo', 'branding/jezerologo.png');
+      }
+
       create() {
         drawStarfield(this);
 
-        this.add.text(W / 2, 68, 'JEZERO', {
-          fontFamily: 'monospace', fontSize: '76px', fontStyle: 'bold',
+        const logo = this.add.image(W / 2, 0, 'jezero-logo');
+        const logoScale = Math.min(44 / logo.height, 260 / logo.width);
+        logo.setScale(logoScale);
+        logo.y = logo.displayHeight / 2 + 8;
+
+        this.add.text(W / 2, 72, 'JEZERO AI', {
+          fontFamily: 'monospace', fontSize: '68px', fontStyle: 'bold',
           color: '#ff5500', stroke: '#2a0800', strokeThickness: 6
         }).setOrigin(0.5);
 
-        this.add.text(W / 2, 138, 'M A R S   M I S S I O N   ·   2 0 4 7', {
+        this.add.text(W / 2, 134, 'M A R S   M I S S I O N   ·   2 0 4 7', {
           fontFamily: 'monospace', fontSize: '13px', color: '#993300'
         }).setOrigin(0.5);
 
         const hr = this.add.graphics();
         hr.lineStyle(1, 0xff5500, 0.35);
-        hr.lineBetween(W / 2 - 220, 162, W / 2 + 220, 162);
+        hr.lineBetween(W / 2 - 220, 155, W / 2 + 220, 155);
 
         const formHTML = `
           <div style="display:flex;flex-direction:column;align-items:center;gap:16px;
@@ -294,6 +303,10 @@
     class GameOverScene extends Phaser.Scene {
       constructor() { super({ key: 'GameOver' }); }
 
+      preload() {
+        this.load.image('jezero-logo', 'branding/jezerologo.png');
+      }
+
       create() {
         drawStarfield(this);
 
@@ -302,7 +315,12 @@
         // Dim overlay
         this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.55).setDepth(0);
 
-        this.add.text(W / 2, H * 0.22, 'GAME OVER', {
+        const logo = this.add.image(W / 2, 0, 'jezero-logo').setDepth(1);
+        const logoScale = Math.min(38 / logo.height, 220 / logo.width);
+        logo.setScale(logoScale);
+        logo.y = logo.displayHeight / 2 + 8;
+
+        this.add.text(W / 2, H * 0.26, 'GAME OVER', {
           fontFamily: 'monospace', fontSize: '62px', fontStyle: 'bold',
           color: '#ff3300', stroke: '#220000', strokeThickness: 7
         }).setOrigin(0.5).setDepth(1);
