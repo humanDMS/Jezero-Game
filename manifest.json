@@ -1,0 +1,17 @@
+{
+  "name": "Rover Run",
+  "short_name": "RoverRun",
+  "description": "Mars side-scrolling action game",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#020008",
+  "theme_color": "#020008",
+  "icons": [
+    {
+      "src": "assets/sprites/rover.png",
+      "sizes": "any",
+      "type": "image/png"
+    }
+  ]
+}

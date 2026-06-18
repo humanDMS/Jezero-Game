@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-fullscreen">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#020008">
+  <link rel="manifest" href="manifest.json">
   <title>JEZERO</title>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -11,8 +16,11 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: 100vh;
+      width: 100vw;
+      height: 100vh;
       overflow: hidden;
+      touch-action: none;
+      overscroll-behavior: none;
     }
     #game-container { position: relative; }
     #game-container canvas { display: block; image-rendering: pixelated; }
@@ -888,6 +896,12 @@
       backgroundColor: '#020008',
       pixelArt: true,
       antialias: false,
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+        width: W,
+        height: H,
+      },
       physics: {
         default: 'arcade',
         arcade: { gravity: { y: 1500 }, debug: false }
