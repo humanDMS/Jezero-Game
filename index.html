@@ -534,10 +534,12 @@
         this.bulletGroup = this.physics.add.group();
         this.ufos = [];
         this.nextUFOSpawnTime = 15000;
-        this.physics.add.overlap(this.bulletGroup, this.crabGroup,   this.onBulletHitEnemy, null, this);
-        this.physics.add.overlap(this.bulletGroup, this.meteorGroup, this.onBulletHitEnemy, null, this);
-        this.physics.add.overlap(this.player,      this.crabGroup,   this.onPlayerHitEnemy, null, this);
-        this.physics.add.overlap(this.player,      this.meteorGroup, this.onPlayerHitEnemy, null, this);
+        this.crabBulletGroup = this.physics.add.group();
+        this.physics.add.overlap(this.bulletGroup,     this.crabGroup,       this.onBulletHitEnemy,      null, this);
+        this.physics.add.overlap(this.bulletGroup,     this.meteorGroup,     this.onBulletHitEnemy,      null, this);
+        this.physics.add.overlap(this.player,          this.crabGroup,       this.onPlayerCrabContact,   null, this);
+        this.physics.add.overlap(this.player,          this.meteorGroup,     this.onPlayerHitEnemy,      null, this);
+        this.physics.add.overlap(this.player,          this.crabBulletGroup, this.onCrabBulletHitPlayer, null, this);
         this.lastEnemySpawnTime = 0;
         this.lastShotTime  = 0;
         this.shotCooldown  = 300; // ms
@@ -769,6 +771,7 @@
           e.body.setVelocityX(-(160 + this.speedLevel * 15 + Phaser.Math.Between(0, 30)));
           e.play('alien-walk');
           e.setData('type', 'crab');
+          e.setData('nextShotTime', time + Phaser.Math.Between(1500, 3500));
 
         } else {
           // Meteor — flies diagonally from top-right to bottom-left as an incoming projectile
@@ -810,6 +813,33 @@
         this.spawnExplosion(enemy.x, enemy.y);
         enemy.destroy();
         if (!this.invincible) this.loseLife();
+      }
+
+      onPlayerCrabContact(player, crab) {
+        // Stomp: player falling and player's feet are near the crab's top
+        if (player.body.velocity.y > 0 && player.body.bottom - crab.body.top < 20) {
+          this.spawnExplosion(crab.x, crab.y);
+          crab.destroy();
+          this.score += 100;
+          this.scoreText.setText(this.score);
+          player.body.setVelocityY(-420); // bounce
+        } else if (!this.invincible) {
+          this.spawnExplosion(crab.x, crab.y);
+          crab.destroy();
+          this.loseLife();
+        }
+      }
+
+      onCrabBulletHitPlayer(player, bullet) {
+        bullet.destroy();
+        if (!this.invincible) this.loseLife();
+      }
+
+      fireCrabBullet(crab) {
+        const b = this.crabBulletGroup.create(crab.x - 24, crab.y - 8, 'laser');
+        b.setDepth(6).setScale(1.5).setFlipX(true);
+        b.body.setAllowGravity(false);
+        b.body.setVelocityX(-600);
       }
 
       spawnExplosion(x, y) {
@@ -1053,12 +1083,23 @@
           if (u.x < -100) { u.destroy(); this.ufos.splice(i, 1); }
         }
 
+        // Crab shooting
+        this.crabGroup.getChildren().forEach(crab => {
+          if (time > crab.getData('nextShotTime')) {
+            this.fireCrabBullet(crab);
+            crab.setData('nextShotTime', time + Phaser.Math.Between(2000, 5000));
+          }
+        });
+
         // Cull enemies and bullets that have left the screen
         [...this.crabGroup.getChildren(), ...this.meteorGroup.getChildren()].forEach(e => {
           if (e.x < -120 || e.y > H + 80) e.destroy();
         });
         this.bulletGroup.getChildren().slice().forEach(b => {
           if (b.x > W + 60) b.destroy();
+        });
+        this.crabBulletGroup.getChildren().slice().forEach(b => {
+          if (b.x < -60) b.destroy();
         });
 
         // ── Player fell through a gap ─────────────────────────────────────
