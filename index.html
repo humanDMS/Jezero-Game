@@ -22,9 +22,118 @@
       touch-action: none;
       overscroll-behavior: none;
     }
-    #game-container { position: relative; }
+    #game-container { position: relative; display: none; }
     #game-container canvas { display: block; image-rendering: pixelated; }
 
+    /* ── Email gate overlay (portrait-friendly) ── */
+    #email-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9997;
+      background: #020008;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 32px 28px 24px;
+      overflow: hidden;
+    }
+    #email-overlay.hidden { display: none; }
+    #email-stars {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    #email-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 360px;
+    }
+    #email-logo {
+      width: 80px;
+      height: auto;
+      margin-bottom: 18px;
+    }
+    #email-title {
+      font-family: monospace;
+      font-size: clamp(40px, 12vw, 64px);
+      font-weight: bold;
+      color: #ff5500;
+      letter-spacing: 4px;
+      text-shadow: 0 0 24px rgba(255,85,0,0.45);
+      margin-bottom: 10px;
+    }
+    #email-subtitle {
+      font-family: monospace;
+      font-size: 11px;
+      color: #993300;
+      letter-spacing: 2px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    #email-divider {
+      width: 100%;
+      border: none;
+      border-top: 1px solid rgba(255,85,0,0.35);
+      margin-bottom: 28px;
+    }
+    #email-label {
+      font-family: monospace;
+      font-size: 11px;
+      color: #7a3318;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      text-align: center;
+      margin-bottom: 14px;
+    }
+    #email-input {
+      background: rgba(10,2,0,0.85);
+      border: 1px solid #ff5500;
+      border-radius: 0;
+      color: #ff7733;
+      padding: 13px 20px;
+      font-family: monospace;
+      font-size: 15px;
+      width: 100%;
+      outline: none;
+      text-align: center;
+      letter-spacing: 1px;
+      margin-bottom: 14px;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    #email-input::placeholder { color: rgba(255,119,51,0.25); }
+    #email-input.error { border-color: #ff0000; }
+    #launch-btn {
+      background: #cc2200;
+      border: none;
+      color: #fff;
+      padding: 14px 0;
+      width: 100%;
+      font-family: monospace;
+      font-size: 13px;
+      letter-spacing: 6px;
+      cursor: pointer;
+      text-transform: uppercase;
+      margin-bottom: 32px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #launch-btn:hover, #launch-btn:active { background: #ff3300; }
+    #email-privacy {
+      font-family: monospace;
+      font-size: 9px;
+      color: #331100;
+      text-align: center;
+      line-height: 1.7;
+    }
+
+    /* ── Rotate overlay ── */
     #rotate-overlay {
       display: none;
       position: fixed;
@@ -59,28 +168,124 @@
   </style>
 </head>
 <body>
+
+  <!-- Step 1: Email gate (portrait) -->
+  <div id="email-overlay">
+    <canvas id="email-stars"></canvas>
+    <div id="email-content">
+      <img id="email-logo" src="branding/jezerologo.png" alt="Jezero" />
+      <h1 id="email-title">JEZERO</h1>
+      <p id="email-subtitle">M A R S &nbsp; M I S S I O N &nbsp; · &nbsp; 2 0 4 7</p>
+      <hr id="email-divider" />
+      <p id="email-label">Enter Crew Email to Begin Mission</p>
+      <input id="email-input" type="email" inputmode="email"
+        placeholder="astronaut@nasa.gov"
+        autocomplete="off" spellcheck="false" />
+      <button id="launch-btn">LAUNCH</button>
+      <p id="email-privacy">By entering your email you consent to being contacted by IdentityE2E,
+        a CACI Business, with information about Jezero AI. We respect your privacy and will not
+        share your data with third parties.</p>
+    </div>
+  </div>
+
+  <!-- Step 2: Rotate prompt (shown only after email submit if portrait) -->
   <div id="rotate-overlay">
     <div id="rotate-icon">&#x1F4F1;</div>
     <p>PLEASE ROTATE YOUR PHONE</p>
   </div>
+
+  <!-- Steps 3 & 4: Phaser canvas (hidden until email + landscape ready) -->
   <div id="game-container"></div>
 
   <script>
-    (function () {
-      const overlay = document.getElementById('rotate-overlay');
-      const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-                       ('ontouchstart' in window && navigator.maxTouchPoints > 1);
-      function check() {
-        if (isMobile && window.innerWidth < window.innerHeight) {
-          overlay.classList.add('visible');
-        } else {
-          overlay.classList.remove('visible');
-        }
+    // ── Pre-Phaser: email overlay logic ───────────────────────────────────────
+    let userEmail = '';
+    let phaserStarted = false;
+
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+                     ('ontouchstart' in window && navigator.maxTouchPoints > 1);
+
+    function isLandscape() {
+      return window.innerWidth >= window.innerHeight;
+    }
+
+    // Draw starfield on the email overlay canvas
+    function drawEmailStars() {
+      const canvas = document.getElementById('email-stars');
+      if (!canvas) return;
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#020008';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Mars horizon glow
+      const grad = ctx.createLinearGradient(0, canvas.height * 0.5, 0, canvas.height);
+      grad.addColorStop(0, 'transparent');
+      grad.addColorStop(1, 'rgba(24,8,0,0.7)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, canvas.height * 0.5, canvas.width, canvas.height * 0.5);
+
+      // Stars
+      for (let i = 0; i < 150; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height * 0.7;
+        const r = Math.random() * 1.2 + 0.3;
+        const a = Math.random() * 0.7 + 0.2;
+        ctx.fillStyle = `rgba(255,255,255,${a})`;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
       }
-      window.addEventListener('resize', check);
-      window.addEventListener('orientationchange', check);
-      check();
-    })();
+    }
+    drawEmailStars();
+    window.addEventListener('resize', drawEmailStars);
+
+    function shakeInput() {
+      const input = document.getElementById('email-input');
+      input.classList.add('error');
+      input.animate([
+        { transform: 'translateX(-5px)' }, { transform: 'translateX(5px)' },
+        { transform: 'translateX(-4px)' }, { transform: 'translateX(4px)' },
+        { transform: 'translateX(0)' }
+      ], { duration: 280 });
+      setTimeout(() => input.classList.remove('error'), 700);
+    }
+
+    function tryLaunch() {
+      const input = document.getElementById('email-input');
+      const email = (input.value || '').trim();
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        userEmail = email;
+        document.getElementById('email-overlay').classList.add('hidden');
+        if (!isMobile || isLandscape()) {
+          // Desktop or already landscape — go straight to game
+          if (typeof launchPhaser === 'function') launchPhaser();
+        } else {
+          // Portrait phone — ask to rotate first
+          document.getElementById('rotate-overlay').classList.add('visible');
+        }
+      } else {
+        shakeInput();
+      }
+    }
+
+    document.getElementById('launch-btn').addEventListener('click', tryLaunch);
+    document.getElementById('email-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') tryLaunch();
+    });
+
+    // Orientation handler: auto-launch Phaser once landscape AND email submitted
+    function checkOrientation() {
+      if (!userEmail) return; // still on email screen — nothing to do
+      if (phaserStarted) return; // already running
+      if (isLandscape()) {
+        if (typeof launchPhaser === 'function') launchPhaser();
+      }
+    }
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
   </script>
 
   <script src="https://unpkg.com/phaser@3.60.0/dist/phaser.min.js"></script>
@@ -100,107 +305,6 @@
         const sy = Phaser.Math.Between(0, H * 0.65);
         g.fillStyle(0xffffff, Phaser.Math.FloatBetween(0.2, 0.9));
         g.fillCircle(sx, sy, Phaser.Math.FloatBetween(0.4, 1.4));
-      }
-    }
-
-    // ── EMAIL GATE ─────────────────────────────────────────────────────────────
-    class EmailGateScene extends Phaser.Scene {
-      constructor() { super({ key: 'EmailGate' }); }
-
-      preload() {
-        this.load.image('jezero-logo', 'branding/jezerologo.png');
-      }
-
-      create() {
-        drawStarfield(this);
-
-        // Logo — fixed 120 px wide, height scales automatically
-        const logo = this.add.image(W / 2, 0, 'jezero-logo');
-        logo.setScale(120 / logo.width);
-        logo.y = logo.displayHeight / 2 + 8;
-        const logoBottom = logo.y + logo.displayHeight / 2;
-
-        this.add.text(W / 2, logoBottom + 22, 'JEZERO', {
-          fontFamily: 'monospace', fontSize: '68px', fontStyle: 'bold',
-          color: '#ff5500', stroke: '#2a0800', strokeThickness: 6
-        }).setOrigin(0.5);
-
-        this.add.text(W / 2, logoBottom + 84, 'M A R S   M I S S I O N   ·   2 0 4 7', {
-          fontFamily: 'monospace', fontSize: '13px', color: '#993300'
-        }).setOrigin(0.5);
-
-        const hr = this.add.graphics();
-        hr.lineStyle(1, 0xff5500, 0.35);
-        hr.lineBetween(W / 2 - 220, logoBottom + 106, W / 2 + 220, logoBottom + 106);
-
-        const formHTML = `
-          <style>
-            #email-input::placeholder { color: rgba(255, 119, 51, 0.25); }
-          </style>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:16px;
-                      font-family:monospace;">
-            <p style="color:#7a3318;font-size:11px;letter-spacing:3px;
-                      text-align:center;text-transform:uppercase;">
-              Enter Crew Email to Begin Mission
-            </p>
-            <input id="email-input" type="email" placeholder="astronaut@nasa.gov"
-              autocomplete="off" spellcheck="false"
-              style="
-                background: rgba(10,2,0,0.85);
-                border: 1px solid #ff5500;
-                border-radius: 0;
-                color: #ff7733;
-                padding: 10px 20px;
-                font-family: monospace;
-                font-size: 15px;
-                width: 300px;
-                outline: none;
-                text-align: center;
-                letter-spacing: 1px;
-              "
-            />
-            <button id="launch-btn"
-              style="
-                background: #cc2200;
-                border: none;
-                color: #fff;
-                padding: 11px 52px;
-                font-family: monospace;
-                font-size: 13px;
-                letter-spacing: 6px;
-                cursor: pointer;
-                text-transform: uppercase;
-              "
-              onmouseover="this.style.background='#ff3300'"
-              onmouseout="this.style.background='#cc2200'"
-            >LAUNCH</button>
-          </div>
-        `;
-
-        const form = this.add.dom(W / 2, 248).createFromHTML(formHTML);
-
-        const tryLaunch = () => {
-          const input = form.getChildByID('email-input');
-          const email = (input.value || '').trim();
-          if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            this.registry.set('email', email);
-            this.scene.start('CharacterSelect');
-          } else {
-            this.cameras.main.shake(220, 0.006);
-            input.style.borderColor = '#ff0000';
-            this.time.delayedCall(700, () => { input.style.borderColor = '#ff5500'; });
-          }
-        };
-
-        form.addListener('click');
-        form.on('click', e => { if (e.target.id === 'launch-btn') tryLaunch(); });
-        form.addListener('keydown');
-        form.on('keydown', e => { if (e.key === 'Enter') tryLaunch(); });
-
-        this.add.text(W / 2, 370, 'By entering your email you consent to being contacted by IdentityE2E, a CACI Business,\nwith information about Jezero AI. We respect your privacy and will not share your data with third parties.', {
-          fontFamily: 'monospace', fontSize: '9px', color: '#331100',
-          align: 'center', wordWrap: { width: W - 60 }
-        }).setOrigin(0.5, 1);
       }
     }
 
@@ -930,10 +1034,17 @@
         arcade: { gravity: { y: 1500 }, debug: false }
       },
       dom: { createContainer: true },
-      scene: [EmailGateScene, CharacterSelectScene, GameScene, GameOverScene]
+      scene: [CharacterSelectScene, GameScene, GameOverScene]
     };
 
-    window.game = new Phaser.Game(config);
+    // Called once email is submitted and phone is landscape (or desktop)
+    function launchPhaser() {
+      if (phaserStarted) return;
+      phaserStarted = true;
+      document.getElementById('rotate-overlay').classList.remove('visible');
+      document.getElementById('game-container').style.display = '';
+      window.game = new Phaser.Game(config);
+    }
   </script>
 </body>
 </html>
